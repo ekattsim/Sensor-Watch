@@ -32,6 +32,7 @@
 
 typedef enum {
     alarm_setting_idx_alarm,
+    alarm_setting_idx_tomato,
     alarm_setting_idx_day,
     alarm_setting_idx_hour,
     alarm_setting_idx_minute,
