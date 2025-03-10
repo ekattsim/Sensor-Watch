@@ -41,8 +41,8 @@ typedef enum {
 } alarm_setting_idx_t;
 
 static const char _dow_strings[ALARM_DAY_STATES + 1][2] ={"AL", "MO", "TU", "WE", "TH", "FR", "SA", "SO", "ED", "1t", "MF", "WN"};
-static const uint8_t _blink_idx[ALARM_SETTING_STATES] = {2, 0, 4, 6, 8, 9};
-static const uint8_t _blink_idx2[ALARM_SETTING_STATES] = {3, 1, 5, 7, 8, 9};
+static const uint8_t _blink_idx[ALARM_SETTING_STATES] = {2, 2, 0, 4, 6, 8, 9};
+static const uint8_t _blink_idx2[ALARM_SETTING_STATES] = {3, 2, 1, 5, 7, 8, 9};
 static const BuzzerNote _buzzer_notes[3] = {BUZZER_NOTE_B6, BUZZER_NOTE_C8, BUZZER_NOTE_A8};
 static const uint8_t _buzzer_segdata[3][2] = {{0, 3}, {1, 3}, {2, 2}};
 
@@ -65,13 +65,25 @@ static void _alarm_set_signal(alarm_state_t *state) {
 }
 
 static void _alarm_face_draw(movement_settings_t *settings, alarm_state_t *state, uint8_t subsecond) {
-    char buf[12];
+    char buf[12]; // why tf is this 12, there's only 10 digits and +1 for '\0' should give you final size 11
 
     uint8_t i = 0;
+    bool t = false;
     if (state->is_setting) {
         // display the actual day indicating string for the current alarm
         i = state->alarm[state->alarm_idx].day + 1;
+        // the state of tomato setting for the current alarm
+        t = state->alarm[state->alarm_idx].tomato;
     }
+
+    // enable/disable tomato indicator(LAP) only in settings mode since the true value is only set above in setting mode
+    // and is false by default
+    if (t) {
+        watch_set_indicator(WATCH_INDICATOR_LAP);
+    } else {
+        watch_clear_indicator(WATCH_INDICATOR_LAP);
+    }
+
     //handle am/pm for hour display
     bool set_leading_zero = false;
     uint8_t h = state->alarm[state->alarm_idx].hour;
@@ -98,8 +110,8 @@ static void _alarm_face_draw(movement_settings_t *settings, alarm_state_t *state
         (state->alarm_idx + 1),
         h,
         state->alarm[state->alarm_idx].minute);
-    // blink items if in settings mode
-    if (state->is_setting && subsecond % 2 && state->setting_state < alarm_setting_idx_pitch && !state->alarm_quick_ticks) {
+    // blink items if in settings mode, before pitch, and not in tomato setting(custom blink logic for this)
+    if (state->is_setting && subsecond % 2 && state->setting_state < alarm_setting_idx_pitch && !state->alarm_quick_ticks && (state->setting_state != alarm_setting_idx_tomato)) {
         buf[_blink_idx[state->setting_state]] = buf[_blink_idx2[state->setting_state]] = ' ';
     }
     watch_display_string(buf, 0);
@@ -119,6 +131,15 @@ static void _alarm_face_draw(movement_settings_t *settings, alarm_state_t *state
                     watch_display_character('o', _blink_idx[alarm_setting_idx_beeps]);
                 else
                     watch_display_character(state->alarm[state->alarm_idx].beeps + 48, _blink_idx[alarm_setting_idx_beeps]);
+            }
+        }
+
+        // blink tomato indicator if disabled in tomato setting mode
+        if (state->setting_state == alarm_setting_idx_tomato && !state->alarm[state->alarm_idx].tomato) {
+            if ((subsecond % 2) == 0) {
+                watch_set_indicator(WATCH_INDICATOR_LAP);
+            } else {
+                watch_clear_indicator(WATCH_INDICATOR_LAP);
             }
         }
     }
@@ -295,7 +316,7 @@ bool alarm_face_loop(movement_event_t event, movement_settings_t *settings, void
                     delay_ms(275);
                     state->alarm_idx = 0;
                 }
-            } else break; // no need to do anything when we are not in settings mode and no quick ticks are running
+            } else break; // no need to do anything when we are in settings mode and no quick ticks are running
         }
         // fall through
     case EVENT_ACTIVATE:
@@ -332,6 +353,10 @@ bool alarm_face_loop(movement_event_t event, movement_settings_t *settings, void
             case alarm_setting_idx_alarm:
                 // alarm selection
                 state->alarm_idx = (state->alarm_idx + 1) % (ALARM_ALARMS);
+                break;
+            case alarm_setting_idx_tomato:
+                // tomato toggle
+                state->alarm[state->alarm_idx].tomato ^= 1;
                 break;
             case alarm_setting_idx_day:
                 // day selection
