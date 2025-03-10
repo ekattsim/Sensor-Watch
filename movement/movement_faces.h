@@ -123,7 +123,7 @@
 #include "accel_interrupt_count_face.h"
 #include "metronome_face.h"
 #include "smallchess_face.h"
-#include "scheduling_face.h"
+// #include "scheduling_face.h"
 // New includes go above this line.
 
 #endif // MOVEMENT_FACES_H_
