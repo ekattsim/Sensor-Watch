@@ -424,6 +424,10 @@ bool alarm_face_loop(movement_event_t event, movement_settings_t *settings, void
         } else _wait_ticks = -1;
         break;
     case EVENT_BACKGROUND_TASK:
+        // open tomato timer if enabled
+        if (state->alarm[state->alarm_playing_idx].tomato) {
+            movement_move_to_face(1); // hardcoded tomato face index (this is hopefully temporary)
+        }
         // play alarm
         if (state->alarm[state->alarm_playing_idx].beeps == 0) {
             // short beep
